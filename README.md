@@ -1,1 +1,1 @@
-AAMAS see ml-playground
+COINE see ml-playground
