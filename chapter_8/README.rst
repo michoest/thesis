@@ -6,7 +6,7 @@
 This repository contains the reference implementation of the *DRAMA*
 framework as introduced in *Oesterle et al. (2024): DRAMA at the
 PettingZoo: Dynamically Restricted Action Spaces for Multi-Agent
-Reinforcement Learning Frameworks. Submitted to HICSS 2024.*
+Reinforcement Learning Frameworks. HICSS 2024.*
 
 Installation
 ------------
