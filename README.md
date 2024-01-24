@@ -6,7 +6,11 @@ This repository contains the code for the experiments described in Chapters 5-9 
 
 
 ## Installation
-You might want to create a virtual environment to keep the dependencies separated from other environments. 
+You might want to create a virtual environment to keep the dependencies separated from other environments. To do so, execute
+```console
+$ python -m venv venv
+$ source venv/bin/activate
+```
 
 With your target environment activated, execute
 ```console
