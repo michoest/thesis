@@ -37,7 +37,7 @@ Depending on the experiment, there are also sub-folders with source code (`/src`
 
 ### Chapter 9: Evaluating efficacy and fairness of restriction-based governance
 - [Braess Paradox](chapter_9/experiments/braess/braess.ipynb)
-- [Erdős-Renyi graphs](chapter_9/experiments/gnp/gnp.ipynb)
+- [Erdős-Rényi graphs](chapter_9/experiments/gnp/gnp.ipynb)
 
 
 ## Citation
