@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from examples.navigation.env import NavigationEnvironment
-from examples.navigation.restrictor import NavigationRestrictor
+from env import NavigationEnvironment
+from restrictor import NavigationRestrictor
 from drama.wrapper import RestrictionWrapper
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

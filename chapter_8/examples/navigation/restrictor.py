@@ -4,7 +4,7 @@ import numpy as np
 from gymnasium.spaces import Box, Dict
 from shapely import Polygon, Point, LineString
 
-from examples.navigation.env import NavigationEnvironment, Agent
+from env import NavigationEnvironment, Agent
 from drama.restrictions import IntervalUnionRestriction
 from drama.restrictors import Restrictor, IntervalUnionActionSpace
 
