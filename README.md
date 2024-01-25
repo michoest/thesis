@@ -35,13 +35,13 @@ Depending on the experiment, there are also sub-folders with source code (`/src`
 
 ### Chapter 8: Implementing dynamic restrictions in MARL frameworks
 - [Getting started](chapter_8/getting-started.ipynb)
-- [Cournot Game](chapter_8/examples/cournot/cournot.ipynb)
-- [Navigation Task](chapter_8/examples/navigation/navigation.ipynb)
-- [Traffic Network](chapter_8/examples/traffic/traffic.ipynb)
+- [Cournot Game](chapter_8/examples/cournot/experiments.ipynb)
+- [Navigation Task](chapter_8/examples/navigation/experiments.ipynb)
+- [Traffic Network](chapter_8/examples/traffic/experiments.ipynb)
 
 ### Chapter 9: Evaluating efficacy and fairness of restriction-based governance
-- [Braess Paradox](chapter_9/experiments/braess/braess.ipynb)
-- [Erdős-Rényi graphs](chapter_9/experiments/gnp/gnp.ipynb)
+- [Braess Paradox](chapter_9/experiments/braess/experiments.ipynb)
+- [Erdős-Rényi graphs](chapter_9/experiments/gnp/experiments.ipynb)
 
 
 ## Citation
