@@ -1,4 +1,4 @@
-from eumas.src.utils import delta
+from src.utils import delta
 
 
 class Environment:

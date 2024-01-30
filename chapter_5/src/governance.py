@@ -4,7 +4,7 @@ import functools
 import itertools
 import random
 
-from eumas.src.utils import state_to_number, delta
+from src.utils import state_to_number, delta
 
 
 class Governance:

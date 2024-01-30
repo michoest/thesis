@@ -1,4 +1,4 @@
-from eumas.src.utils import state_to_number
+from src.utils import state_to_number
 
 
 class Agent:
