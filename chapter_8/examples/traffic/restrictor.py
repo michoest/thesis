@@ -1,18 +1,14 @@
-import random
-
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
+from torch import nn
+from gymnasium import spaces
 
-import gymnasium as gym
-from gymnasium.spaces import Space, Discrete, Box
-from drama.restrictors import Restrictor, RestrictorActionSpace, DiscreteVectorActionSpace
-from drama.restrictions import DiscreteVectorRestriction
-from drama.utils import flatdim
+from drama.restrictions import DiscreteVectorRestriction, DiscreteSetRestriction
+from drama.restrictors import Restrictor, RestrictorActionSpace
+from drama.utils import flatdim, DiscreteVectorActionSpace, DiscreteSetActionSpace
 
 from examples.utils import ReplayBuffer
+from examples.traffic_new.utils import to_edges
 
 
 class QNetwork(nn.Module):
@@ -37,20 +33,20 @@ def linear_schedule(start_e: float, end_e: float, duration: int, t: int):
 
 class TrafficRestrictor(Restrictor):
     def __init__(
-        self,
-        number_of_edges,
-        number_of_routes,
-        valid_route_restrictions,
-        total_timesteps,
-        # route_list
+        self, edges, routes, valid_edge_restrictions, total_timesteps, seed=42
     ) -> None:
-        observation_space = Box(0, np.inf, (number_of_edges, ))
-        action_space = DiscreteVectorActionSpace(Discrete(number_of_routes))
-        self.network_action_space = Discrete(len(valid_route_restrictions))
+        self.rng = np.random.default_rng(seed)
+
+        observation_space = spaces.Box(0, np.inf, (len(edges),))
+        action_space = spaces.Discrete(len(valid_edge_restrictions))
+        # action_space = DiscreteVectorActionSpace(spaces.Discrete(len(edges)))
+        self.network_action_space = spaces.Discrete(len(valid_edge_restrictions))
 
         super().__init__(observation_space, action_space)
 
-        self.valid_route_restrictions = valid_route_restrictions
+        self.edges = edges
+        self.routes = routes
+        self.valid_edge_restrictions = valid_edge_restrictions
         self.start_e, self.end_e = 1.0, 0.01
         self.exploration_fraction = 0.5
         self.total_timesteps = total_timesteps
@@ -67,29 +63,42 @@ class TrafficRestrictor(Restrictor):
             "cuda" if torch.cuda.is_available() and self.cuda else "cpu"
         )
 
-        self.q_network = QNetwork(observation_space, self.network_action_space).to(self.device)
-        self.optimizer = optim.Adam(self.q_network.parameters(), lr=self.learning_rate)
-        self.target_network = QNetwork(observation_space, self.network_action_space).to(self.device)
+        self.q_network = QNetwork(observation_space, self.network_action_space).to(
+            self.device
+        )
+        self.optimizer = torch.optim.Adam(
+            self.q_network.parameters(), lr=self.learning_rate
+        )
+        self.target_network = QNetwork(observation_space, self.network_action_space).to(
+            self.device
+        )
         self.target_network.load_state_dict(self.q_network.state_dict())
 
-        self.replay_buffer = ReplayBuffer(state_dim=flatdim(observation_space), action_dim=1)
+        self.replay_buffer = ReplayBuffer(
+            state_dim=flatdim(observation_space), action_dim=1
+        )
 
         self.global_step = 0
 
-    def act(self, observation: Space) -> RestrictorActionSpace:
+    def act(self, observation: spaces.Space) -> RestrictorActionSpace:
         epsilon = linear_schedule(
             self.start_e,
             self.end_e,
             self.exploration_fraction * self.total_timesteps,
             self.global_step,
         )
-        if random.random() < epsilon:
-            action = self.network_action_space.sample()
+        if self.rng.random() < epsilon:
+            network_action = self.network_action_space.sample()
         else:
             q_values = self.q_network(torch.Tensor(observation).to(self.device))
-            action = torch.argmax(q_values).cpu().numpy()
+            network_action = torch.argmax(q_values).cpu().numpy()
 
-        return action
+        return network_action
+
+        # return DiscreteVectorRestriction(
+        #     base_space=spaces.Discrete(len(self.edges)),
+        #     allowed_actions=self.valid_edge_restrictions[network_action],
+        # )
 
     def learn(self, obs, action, next_obs, reward, done):
         self.record(obs, action, next_obs, reward, done)
@@ -98,7 +107,9 @@ class TrafficRestrictor(Restrictor):
             if (self.global_step - self.training_start) % self.training_frequency == 0:
                 self.update_q_network()
 
-            if (self.global_step - self.training_start) % self.target_network_frequency == 0:
+            if (
+                self.global_step - self.training_start
+            ) % self.target_network_frequency == 0:
                 self.update_target_network()
 
         self.global_step += 1
@@ -107,7 +118,9 @@ class TrafficRestrictor(Restrictor):
         self.replay_buffer.add(obs, action, next_obs, reward, done)
 
     def update_q_network(self):
-        states, actions, next_states, rewards, not_dones = self.replay_buffer.sample(self.batch_size)
+        states, actions, next_states, rewards, not_dones = self.replay_buffer.sample(
+            self.batch_size
+        )
 
         actions = actions.type(torch.int64)
         rewards = rewards.flatten()
@@ -123,16 +136,12 @@ class TrafficRestrictor(Restrictor):
 
             td_target = rewards.flatten() + self.gamma * target_max * not_dones
 
-            # print(f'{td_target=}')
-        
         # Get values from q network
         # print(f'{self.q_network(states)=}')
         old_val = self.q_network(states).gather(1, actions).squeeze()
 
-        # print(f'{old_val=}')
-
         # Compute loss
-        loss = F.mse_loss(td_target, old_val)
+        loss = nn.functional.mse_loss(td_target, old_val)
 
         # Optimize model
         self.optimizer.zero_grad()
@@ -140,39 +149,21 @@ class TrafficRestrictor(Restrictor):
         self.optimizer.step()
 
     def update_target_network(self):
-        for target_network_param, q_network_param in zip(self.target_network.parameters(), self.q_network.parameters()):
+        for target_network_param, q_network_param in zip(
+            self.target_network.parameters(), self.q_network.parameters()
+        ):
             target_network_param.data.copy_(
-                self.tau * q_network_param.data + (1.0 - self.tau) * target_network_param.data
+                self.tau * q_network_param.data
+                + (1.0 - self.tau) * target_network_param.data
             )
 
-    # def train(self):
-    #     states, actions, next_states, rewards, not_dones = self.replay_buffer.sample(self.batch_size)
-
-    #     with torch.no_grad():
-    #         target_max, _ = self.target_network(next_states).max(dim=1)
-    #         td_target = rewards.flatten() + self.gamma * target_max * (1 - not_dones.flatten())
-    #     old_val = self.q_network(states).gather(1, actions).squeeze()
-    #     loss = F.mse_loss(td_target, old_val)
-
-    #     # if global_step % 100 == 0:
-    #     #     writer.add_scalar("losses/td_loss", loss, global_step)
-    #     #     writer.add_scalar("losses/q_values", old_val.mean().item(), global_step)
-    #     #     print("SPS:", int(global_step / (time.time() - start_time)))
-    #     #     writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
-
-    #     # # optimize the model
-    #     self.optimizer.zero_grad()
-    #     loss.backward()
-    #     self.optimizer.step()
-
-    #     # update target network
-    #     if self.global_step % self.target_network_frequency == 0:
-    #         for target_network_param, q_network_param in zip(self.target_network.parameters(), self.q_network.parameters()):
-    #             target_network_param.data.copy_(
-    #                 self.tau * q_network_param.data + (1.0 - self.tau) * self.target_network_param.data
-    #             )
-
     def postprocess_restriction(self, restriction):
-        allowed_actions = self.valid_route_restrictions[restriction]
+        edge_restriction = DiscreteVectorRestriction(base_space=spaces.Discrete(len(self.edges)), allowed_actions=self.valid_edge_restrictions[restriction])
+        allowed_routes = [
+            all(edge_restriction.contains(edge) for edge in to_edges(route, self.edges))
+            for route in self.routes
+        ]
 
-        return DiscreteVectorRestriction(self.action_space.base_space, allowed_actions=allowed_actions)
+        return DiscreteVectorRestriction(
+            base_space=spaces.Discrete(len(self.routes)), allowed_actions=allowed_routes
+        )

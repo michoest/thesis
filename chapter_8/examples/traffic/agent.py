@@ -1,15 +1,23 @@
+from typing import List, Dict, Tuple
+
 import numpy as np
 from gymnasium.spaces import Discrete
 
 
 class TrafficAgent:
-    def __init__(self, route_list, source_target_map) -> None:
-        self.route_list = route_list
-        self.source_target_map = source_target_map
+    def __init__(
+        self, routes: List[List[int]], edges: Dict[Tuple[int, int], int], seed: int = 42
+    ) -> None:
+        # A route is a list of nodes
+        self.routes = routes
+        self.edges = edges
 
-        self.action_space = Discrete(len(route_list))
+        self.action_space = Discrete(len(self.routes))
 
-    def act(self, observation):
+        self.rng = np.random.default_rng(seed)
+
+    def act(self, observation: Dict) -> int:
+        # print(f'{observation=}')
         # Destructure observation, either with or without restriction
         if "restriction" in observation:
             observation, restriction = (
@@ -25,36 +33,29 @@ class TrafficAgent:
             observation["travel_times"],
         )
 
-        # A route is feasible if it leads from the agent's position to its target, and it is allowed
-        feasible_routes = np.array([(restriction is None or restriction.contains(index)) and s_t == (position, target) for index, s_t in enumerate(self.source_target_map)])
-
-        # print(f'{feasible_routes=}')
-        
-        # If there is no allowed route, choose any route
-        # if not allowed_routes.any():
-        #     allowed_routes = np.array([s_t == (position, target) for index, s_t in enumerate(self.source_target_map)])
-
         # Calculate travel times for all routes, with np.inf for infeasible routes
-        travel_times = np.array([
-            sum(edge_travel_times[edge] for edge in route)
-            if restriction is None
-            or restriction.contains(i)
-            and (st == (position, target))
-            else np.inf
-            for i, [route, st] in enumerate(
-                zip(self.route_list, self.source_target_map)
-            )
-        ])
+        travel_times = np.array(
+            [
+                sum(edge_travel_times[edge] for edge in self._to_edges(route))
+                if (restriction is None or restriction.contains(i))
+                and (route[0] == position and route[-1] == target)
+                else np.inf
+                for i, route in enumerate(self.routes)
+            ]
+        )
 
-        # print(f'{travel_times=}')
+        # print(f"{travel_times=}")
 
-        # if travel_times.min() == np.inf:
-        #     # Choose any route
-        #     return np.random.choice(len(self.route_list))
-        # else:
-            # Select routes with minimal travel time
+        # Since only valid restrictions can be chosen by the governance, there is
+        # always a path
+        assert travel_times.min() < np.inf
+
+        # Select routes with minimal travel time
         optimal_routes = np.argmin(travel_times, keepdims=True)
-        # print(f'{optimal_routes=}')
+        # print(f"{optimal_routes=}")
 
         # Choose a route randomly from optimal routes
-        return np.random.choice(optimal_routes)
+        return self.rng.choice(optimal_routes)
+
+    def _to_edges(self, route: List[int]) -> List[int]:
+        return [self.edges[(v, w)] for v, w in zip(route[:-1], route[1:])]

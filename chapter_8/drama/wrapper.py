@@ -317,7 +317,7 @@ class RestrictionWrapper(BaseWrapper):
             self.agent_selection = self.env.agent_selection
         else:
             # Check if the action violated the current restriction for the agent
-            if action and not self.restrictions[self.agent_selection].contains(action):
+            if action is not None and not self.restrictions[self.agent_selection].contains(action):
                 self.restriction_violation_fns[self.agent_selection](
                     self.env, action, self.restrictions[self.agent_selection]
                 )
@@ -325,6 +325,10 @@ class RestrictionWrapper(BaseWrapper):
                 # If the action was taken by an agent, execute it in the original
                 # environment
                 self.env.step(action)
+
+            if not self.env.agents:
+                self.agents = []
+                return
 
             # Update properties
             self.agents = self.env.agents + list(
