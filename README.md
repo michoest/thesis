@@ -55,4 +55,3 @@ If you use this code or the thesis in your research, please cite it as
     year = {2024}
 }
 ```
-or use the included [citation file](citation.cff).
