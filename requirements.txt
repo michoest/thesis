@@ -1,0 +1,14 @@
+gymnasium==0.29.1
+matplotlib==3.8.2
+networkx==3.2.1
+numpy==1.26.4
+pandas==2.2.0
+pettingzoo==1.24.3
+pygame==2.5.2
+ray==2.9.2
+scikit_learn==1.4.0
+Shapely==2.0.2
+statsmodels==0.14.1
+tensorflow==2.15.0.post1
+torch==2.2.0
+tqdm==4.66.2
